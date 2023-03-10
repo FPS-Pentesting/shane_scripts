@@ -108,7 +108,7 @@ for email in emailFile:
 	outFile.write(email+","+str(breachNum)+","+breachNames+","+str(pasteNum)+","+pasteLinks+"\n")
 	count += 1
 	
-print("/nFinished!")
+print("\nFinished!")
 print("Number of emails processed: "+str(count))
 print("Script started at: "+str(starttime))
 print("Script finished at: "+str(datetime.now()))
