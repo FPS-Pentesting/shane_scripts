@@ -1,10 +1,8 @@
 #!/usr/bin/python
-import os, sys, time
+import os, sys, time, requests
 from datetime import datetime
-import requests
-import json
 
-# Insert haveibeenpwned API key here
+# Insert HaveIBeenPwned API key here
 apikey=""
 # Set this to the number of seconds we need to wait in between each request
 # Currently we get 10 requests/min, so we can send 1 request/6 seconds
@@ -110,9 +108,9 @@ for email in emailFile:
 	outFile.write(email+","+str(breachNum)+","+breachNames+","+str(pasteNum)+","+pasteLinks+"\n")
 	count += 1
 	
-
+print("/nFinished!")
 print("Number of emails processed: "+str(count))
 print("Script started at: "+str(starttime))
 print("Script finished at: "+str(datetime.now()))
-print("Completion took this long: "+str(datetime.now()-starttime))
-
+print("Completion took: "+str(datetime.now()-starttime))
+print("Results are in CSV format in "+sys.argv[2])
