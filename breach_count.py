@@ -2,7 +2,7 @@
 import os, sys, time, requests
 from datetime import datetime
 
-# Insert HaveIBeenPwned API key here
+# Insert our API key here
 apikey=""
 # Set this to the number of seconds we need to wait in between each request
 # Currently we get 10 requests/min, so we can send 1 request/6 seconds
@@ -13,6 +13,27 @@ def Usage():
 	print("EmailFile should contain a list of user Email addresses, one per line.")
 	print("OutFile will be created and will contain breach information.")
 	exit()
+
+# Function to handle API requests
+def ApiRequest(url, headers):
+	for attempt in range(10):
+		try:
+			response=requests.get(url, headers=headers)
+		except requests.exceptions.RequestException as e:
+			time.sleep(1)
+			continue
+		else:
+			#If rate limit hit sleep and goto next attempt
+			if response.status_code == 429:
+				#sleep for recommended time then retry
+				sleeptime=int(response.headers["Retry-After"])+0.1
+				print("Rate limit hit, sleeping for "+str(sleeptime)+" seconds.")
+				print("Make sure no one else is using the API!!! :)\n")
+				time.sleep(sleeptime)
+			else:
+				break    		
+	time.sleep(ratelimit)
+	return response
 
 # Check supplied arguments
 n = len(sys.argv)
@@ -29,7 +50,7 @@ if os.path.isfile(sys.argv[2]):
 starttime = datetime.now()
 emailFile = open(sys.argv[1], 'r')
 outFile = open(sys.argv[2], 'w')
-outFile.write("Emails,Breaches,BreachNames,Pastes,PasteLinks\n")
+outFile.write("Emails,Breaches,MostRecentBreachDate,BreachNames,Pastes,PasteSources\n")
 
 count = 0
 for email in emailFile:
@@ -37,39 +58,21 @@ for email in emailFile:
 	email = email.rstrip('\n')
 	
 	#set up the request elements
-	breachUrl = f'https://haveibeenpwned.com/api/v3/breachedaccount/{email}?truncateResponse=true'
+	breachUrl = f'https://haveibeenpwned.com/api/v3/breachedaccount/{email}?truncateResponse=false'
 	pasteUrl = f'https://haveibeenpwned.com/api/v3/pasteaccount/{email}'
 	headers = {
 		'user-agent': 'Flexential Pentesters',
 		'hibp-api-key': f'{apikey}'
 	}
 	
-	#send request and get response
-	breaches=requests.get(breachUrl, headers=headers)
-	#If rate limit hit sleep and try again
-	while(breaches.status_code == 429):
-		#sleep for recommended time then retry
-		sleeptime=int(breaches.headers["Retry-After"])+0.1
-		print("Rate limit hit, sleeping for "+str(sleeptime)+" seconds.")
-		print("Make sure no one else is using the API!!! :)\n")
-		time.sleep(sleeptime)
-		breaches=requests.get(breachUrl, headers=headers)
-	time.sleep(ratelimit)
-	
-	#send request and get response
-	pastes=requests.get(pasteUrl, headers=headers)
-	#If rate limit hit sleep and try again
-	while(pastes.status_code == 429):
-		#sleep for recommended time then retry
-		sleeptime=int(pastes.headers["Retry-After"])+0.1
-		print("Rate limit hit, sleeping for "+str(sleeptime)+" seconds.")
-		print("Make sure no one else is using the API!!! :)\n")
-		time.sleep(sleeptime)
-		pastes=requests.get(pasteUrl, headers=headers)
-	time.sleep(ratelimit)
+	#Get breaches
+	breaches = ApiRequest(breachUrl, headers)
+	#Get pastes
+	pastes = ApiRequest(pasteUrl, headers)
 	
 	#Process the breaches
 	breachNum = 0
+	mostRecentBreachDate = "N/A"
 	breachNames = ""
 	if(breaches.status_code == 404):
 		breachNum = 0
@@ -81,31 +84,36 @@ for email in emailFile:
 		for dictionary in tempList:
 			tempNames.append(dictionary['Name'])
 		breachNames = ('|'.join(tempNames))
+		tempDates = []
+		for dictionary in tempList:
+			tempDates.append(datetime.strptime(dictionary['BreachDate'], '%Y-%m-%d').date())
+		mostRecentBreachDate = max(tempDates)
 	else:
 		breachNum = -1
 		breachNames = "There was an unexpected error"
 		print("!!!An unexpected HTTP response code was received while processing breaches for this email: "+email)
 		print("HTTP status code was: "+str(breaches.status_code))
+		
 	#Process the pastes
 	pasteNum = 0
-	pasteLinks = ""
+	pasteSources = ""
 	if(pastes.status_code == 404):
 		pasteNum = 0
-		pasteLinks = ""
+		pasteSources = ""
 	elif(pastes.status_code == 200):
 		tempList = pastes.json()
 		pasteNum = len(tempList)
 		tempLinks = []
 		for dictionary in tempList:
-			tempLinks.append(dictionary['Title'])
-		pasteLinks = ('|'.join(tempNames))
+			tempLinks.append(dictionary['Source'])
+		pasteSources = ('|'.join(tempLinks))
 	else:
 		pasteNum = -1
 		print("!!!An unexpected HTTP response code was received while processing pastes for this email: "+email)
 		print("HTTP status code was: "+str(pastes.status_code))
 	
-	print(str(datetime.now()-starttime).split(".")[0]+": "+email+" "+str(breachNum)+" "+breachNames+" "+str(pasteNum)+" "+pasteLinks)
-	outFile.write(email+","+str(breachNum)+","+breachNames+","+str(pasteNum)+","+pasteLinks+"\n")
+	print(str(datetime.now()-starttime).split(".")[0]+": "+email+" "+str(breachNum)+" "+str(mostRecentBreachDate)+" "+breachNames+" "+str(pasteNum)+" "+pasteSources)
+	outFile.write(email+","+str(breachNum)+","+str(mostRecentBreachDate)+","+breachNames+","+str(pasteNum)+","+pasteSources+"\n")
 	count += 1
 	
 print("\nFinished!")
