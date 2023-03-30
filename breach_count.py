@@ -2,7 +2,7 @@
 import os, sys, time, requests
 from datetime import datetime
 
-# Insert our API key here
+# Insert HaveIBeenPwned API key here
 apikey=""
 # Set this to the number of seconds we need to wait in between each request
 # Currently we get 10 requests/min, so we can send 1 request/6 seconds
