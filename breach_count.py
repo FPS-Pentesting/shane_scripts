@@ -2,7 +2,7 @@
 import os, sys, time, requests
 from datetime import datetime
 
-# Insert HaveIBeenPwned API key here
+# Insert our API key here
 apikey=""
 # Set this to the number of seconds we need to wait in between each request
 # Currently we get 10 requests/min, so we can send 1 request/6 seconds
@@ -122,3 +122,4 @@ print("Script started at: "+str(starttime))
 print("Script finished at: "+str(datetime.now()))
 print("Completion took: "+str(datetime.now()-starttime))
 print("Results are in CSV format in "+sys.argv[2])
+
